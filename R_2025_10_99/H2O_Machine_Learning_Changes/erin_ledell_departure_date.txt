@@ -1,0 +1,49 @@
+================================================================================
+INFORMACIÓN SOBRE LA SALIDA DE ERIN LEDELL DE H2O.AI
+================================================================================
+
+FECHA DE SALIDA: 2023
+
+ACLARACIÓN DEL TÍTULO:
+- Erin LeDell ocupó el cargo de "Chief Machine Learning Scientist" (Científica Jefe de Machine Learning) en H2O.ai
+- NO fue CTO (Chief Technology Officer) de Machine Learning como se mencionó en la consulta inicial
+
+PERÍODO DE EMPLEO EN H2O.AI:
+- Inicio: 2015
+- Fin: 2023
+- Duración: 8 años aproximadamente
+
+CONTEXTO RELEVANTE:
+
+1. CONTRIBUCIONES EN H2O.AI:
+   - Lideró el desarrollo de H2O AutoML, la primera plataforma AutoML de código abierto para empresas
+   - Contribuyó significativamente a proyectos de IA explicable (Explainable AI)
+   - Trabajó en justicia algorítmica (Algorithmic Fairness)
+   - Desarrolló métodos de ensemble learning y herramientas de benchmarking de IA
+   - Co-creó el OpenML AutoML Benchmark (AMLB), una herramienta estándar de la industria utilizada por Amazon y Microsoft
+
+2. TRANSICIÓN PROFESIONAL:
+   - En 2024, se unió a Distributional, Inc. como Chief Scientist (Científica Jefe)
+   - Su nuevo rol se centra en plataformas de pruebas y evaluación de IA
+   - Continúa con DataScientific, Inc., su empresa de consultoría en IA fundada en 2013
+
+3. PERFIL PROFESIONAL:
+   - Ph.D. en Bioestadística con Énfasis en Ciencias Computacionales e Ingeniería de UC Berkeley
+   - Fundadora de Women in Machine Learning and Data Science (WiMLDS)
+   - Co-fundadora de R-Ladies Global
+   - Reconocida por su trabajo en diversidad e inclusión en el campo de la IA
+
+4. EXPERIENCIA PREVIA (antes de H2O.ai):
+   - Principal Data Scientist en Marvin Mobile Security (adquirida por Veracode en 2012)
+   - Principal Data Scientist en Wise.io (adquirida por GE Digital en 2016)
+
+FUENTES:
+- RocketReach (rocketreach.co) - Indica empleo en H2O.ai de 2015 a 2023
+- GitHub Profile (github.com/ledell) - Confirma rol anterior en H2O.ai, actual en Distributional
+- BusinessWire (Noviembre 2024) - Anuncia su nombramiento en Distributional
+- AiThority Interview (2025) - Entrevista sobre su rol actual en Distributional
+- LinkedIn y otras fuentes profesionales
+
+================================================================================
+Fecha de investigación: 27 de octubre de 2025
+================================================================================

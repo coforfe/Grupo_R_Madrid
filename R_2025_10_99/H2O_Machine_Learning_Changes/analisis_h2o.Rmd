@@ -1,0 +1,949 @@
+---
+title: "Análisis del Impacto de la Salida de Erin Ledell en el Desarrollo de H2O-3"
+author: "Análisis de Inferencia Causal"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    theme: cosmo
+    highlight: tango
+    code_folding: show
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 12,
+  fig.height = 7,
+  dpi = 300
+)
+```
+
+# Resumen Ejecutivo
+
+Este documento presenta un análisis exhaustivo del impacto que tuvo la salida de **Erin Ledell** (Chief Machine Learning Scientist) de H2O.ai en el año 2023 sobre el desarrollo del proyecto H2O-3. 
+
+## Objetivos del Análisis
+
+1. **Cuantificar el impacto** de la salida de una figura clave en diferentes métricas de desarrollo
+2. **Establecer causalidad** utilizando múltiples metodologías estadísticas
+3. **Analizar el ritmo de desarrollo** antes y después del evento
+4. **Identificar cambios** en la composición y velocidad de releases
+
+## Metodologías Causales Empleadas
+
+Este análisis utiliza **cuatro aproximaciones causales complementarias**:
+
+1. **Series Temporales Interrumpidas (Interrupted Time Series - ITS)**
+2. **Comparación de Medias con Tests de Hipótesis**
+3. **Análisis de Tendencias Antes/Después**
+4. **Modelos Autorregresivos con Intervención (ARIMA)**
+
+---
+
+# Configuración y Carga de Datos
+
+## Paquetes Requeridos
+
+```{r paquetes}
+# Instalar y cargar paquetes necesarios
+paquetes_necesarios <- c("tidytable", "ggplot2", "lubridate", "zoo", 
+                        "lmtest", "tseries", "scales", "knitr", "kableExtra")
+
+for(paquete in paquetes_necesarios) {
+  if(!require(paquete, character.only = TRUE, quietly = TRUE)) {
+    install.packages(paquete, repos = "https://cloud.r-project.org/")
+    library(paquete, character.only = TRUE)
+  }
+}
+```
+
+## Carga y Procesamiento de Datos
+
+```{r carga_datos}
+# Cargar datos de versiones de H2O-3
+datos_h2o <- fread("h2o_versions_data.csv") %>%
+  mutate(
+    # Convertir fecha a formato Date
+    Date = mdy(Date),
+    # Extraer componentes temporales
+    Anio = year(Date),
+    Mes = month(Date),
+    Trimestre = quarter(Date)
+  ) %>%
+  arrange(Date)
+
+# Leer fecha de salida de Erin Ledell
+anio_salida <- 2023
+fecha_salida <- as.Date(paste0(anio_salida, "-12-31"))
+
+# Crear variables de análisis
+datos_h2o <- datos_h2o %>%
+  mutate(
+    # Variable de intervención
+    Post_Salida = ifelse(Date > fecha_salida, 1, 0),
+    Periodo = ifelse(Post_Salida == 1, "Después", "Antes"),
+    # Índice temporal
+    Indice_Temporal = row_number(),
+    # Tiempo desde la salida (en años)
+    Tiempo_desde_salida = as.numeric(Date - fecha_salida) / 365.25,
+    # Total de cambios por versión
+    Total_cambios = New_Features + Bugs + Improvements + Docs
+  )
+```
+
+## Resumen de los Datos
+
+```{r resumen_datos}
+cat("📊 INFORMACIÓN DEL DATASET\n")
+cat("========================\n")
+cat("Total de versiones analizadas:", nrow(datos_h2o), "\n")
+cat("Rango temporal:", format(min(datos_h2o$Date), "%d/%m/%Y"), "al", 
+    format(max(datos_h2o$Date), "%d/%m/%Y"), "\n")
+cat("Fecha de intervención:", format(fecha_salida, "%d/%m/%Y"), "\n")
+cat("Versiones pre-intervención:", sum(datos_h2o$Post_Salida == 0), "\n")
+cat("Versiones post-intervención:", sum(datos_h2o$Post_Salida == 1), "\n")
+
+# Tabla de estadísticas descriptivas
+stats_descriptivas <- datos_h2o %>%
+  summarise(
+    .by = Periodo,
+    N = n(),
+    Features_Media = mean(New_Features),
+    Bugs_Media = mean(Bugs),
+    Mejoras_Media = mean(Improvements),
+    Docs_Media = mean(Docs),
+    Total_Media = mean(Total_cambios)
+  )
+
+kable(stats_descriptivas, 
+      caption = "Estadísticas Descriptivas por Período",
+      digits = 2,
+      col.names = c("Período", "N", "Features", "Bugs", "Mejoras", 
+                    "Docs", "Total")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+---
+
+# Visualizaciones de Evolución Temporal
+
+## Configuración de Tema Visual
+
+```{r tema_visual}
+tema_personalizado <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 11, hjust = 0.5, color = "gray30"),
+    axis.title = element_text(size = 11, face = "bold"),
+    axis.text = element_text(size = 10),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+```
+
+## Evolución de Nuevas Funcionalidades
+
+```{r viz_funcionalidades}
+ggplot(datos_h2o, aes(x = Date, y = New_Features)) +
+  geom_line(color = "#2E86AB", linewidth = 1) +
+  geom_point(aes(color = Periodo), size = 2, alpha = 0.6) +
+  geom_vline(xintercept = fecha_salida, linetype = "dashed", 
+             color = "red", linewidth = 1) +
+  geom_smooth(method = "loess", se = TRUE, color = "#A23B72", alpha = 0.2) +
+  annotate("text", x = fecha_salida, y = max(datos_h2o$New_Features) * 0.9,
+           label = "Salida de\nErin Ledell", hjust = -0.1, color = "red", 
+           size = 3.5, fontface = "bold") +
+  scale_color_manual(values = c("Antes" = "#2E86AB", "Después" = "#F18F01")) +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(
+    title = "Evolución Temporal de Nuevas Funcionalidades en H2O-3",
+    subtitle = "Número de nuevas características por versión",
+    x = "Fecha de la Versión",
+    y = "Número de Nuevas Funcionalidades",
+    color = "Período"
+  ) +
+  tema_personalizado
+```
+
+## Evolución de Bugs Corregidos
+
+```{r viz_bugs}
+ggplot(datos_h2o, aes(x = Date, y = Bugs)) +
+  geom_line(color = "#C73E1D", linewidth = 1) +
+  geom_point(aes(color = Periodo), size = 2, alpha = 0.6) +
+  geom_vline(xintercept = fecha_salida, linetype = "dashed", 
+             color = "red", linewidth = 1) +
+  geom_smooth(method = "loess", se = TRUE, color = "#6A4C93", alpha = 0.2) +
+  annotate("text", x = fecha_salida, y = max(datos_h2o$Bugs) * 0.9,
+           label = "Salida de\nErin Ledell", hjust = -0.1, color = "red", 
+           size = 3.5, fontface = "bold") +
+  scale_color_manual(values = c("Antes" = "#C73E1D", "Después" = "#F18F01")) +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(
+    title = "Evolución Temporal de Corrección de Bugs en H2O-3",
+    subtitle = "Número de bugs corregidos por versión",
+    x = "Fecha de la Versión",
+    y = "Número de Bugs Corregidos",
+    color = "Período"
+  ) +
+  tema_personalizado
+```
+
+## Evolución de Mejoras
+
+```{r viz_mejoras}
+ggplot(datos_h2o, aes(x = Date, y = Improvements)) +
+  geom_line(color = "#06A77D", linewidth = 1) +
+  geom_point(aes(color = Periodo), size = 2, alpha = 0.6) +
+  geom_vline(xintercept = fecha_salida, linetype = "dashed", 
+             color = "red", linewidth = 1) +
+  geom_smooth(method = "loess", se = TRUE, color = "#D4A373", alpha = 0.2) +
+  annotate("text", x = fecha_salida, y = max(datos_h2o$Improvements) * 0.9,
+           label = "Salida de\nErin Ledell", hjust = -0.1, color = "red", 
+           size = 3.5, fontface = "bold") +
+  scale_color_manual(values = c("Antes" = "#06A77D", "Después" = "#F18F01")) +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(
+    title = "Evolución Temporal de Mejoras en H2O-3",
+    subtitle = "Número de mejoras implementadas por versión",
+    x = "Fecha de la Versión",
+    y = "Número de Mejoras",
+    color = "Período"
+  ) +
+  tema_personalizado
+```
+
+## Evolución de Documentación
+
+```{r viz_docs}
+ggplot(datos_h2o, aes(x = Date, y = Docs)) +
+  geom_line(color = "#7209B7", linewidth = 1) +
+  geom_point(aes(color = Periodo), size = 2, alpha = 0.6) +
+  geom_vline(xintercept = fecha_salida, linetype = "dashed", 
+             color = "red", linewidth = 1) +
+  geom_smooth(method = "loess", se = TRUE, color = "#F72585", alpha = 0.2) +
+  annotate("text", x = fecha_salida, y = max(datos_h2o$Docs) * 0.9,
+           label = "Salida de\nErin Ledell", hjust = -0.1, color = "red", 
+           size = 3.5, fontface = "bold") +
+  scale_color_manual(values = c("Antes" = "#7209B7", "Después" = "#F18F01")) +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(
+    title = "Evolución Temporal de Cambios en Documentación en H2O-3",
+    subtitle = "Número de actualizaciones de documentación por versión",
+    x = "Fecha de la Versión",
+    y = "Número de Cambios en Documentación",
+    color = "Período"
+  ) +
+  tema_personalizado
+```
+
+---
+
+# Método 1: Series Temporales Interrumpidas (ITS)
+
+## Fundamentos Teóricos
+
+### ¿Qué es el Análisis de Series Temporales Interrumpidas?
+
+El análisis de **Series Temporales Interrumpidas (Interrupted Time Series - ITS)** es una metodología cuasi-experimental utilizada para evaluar el impacto causal de una intervención o evento cuando:
+
+- No es posible realizar un experimento controlado (RCT)
+- Existe una clara demarcación temporal del evento (antes/después)
+- Se tienen múltiples observaciones antes y después de la intervención
+
+### Modelo Matemático
+
+El modelo básico de ITS se expresa como:
+
+$$Y_t = \beta_0 + \beta_1 \cdot T_t + \beta_2 \cdot X_t + \beta_3 \cdot (T_t \cdot X_t) + \epsilon_t$$
+
+Donde:
+
+- $Y_t$ = Variable de resultado en el tiempo $t$
+- $T_t$ = Tiempo transcurrido desde el inicio del estudio
+- $X_t$ = Indicador de intervención (0 antes, 1 después)
+- $\beta_0$ = Nivel base al inicio
+- $\beta_1$ = Tendencia temporal pre-intervención
+- $\beta_2$ = Cambio inmediato de nivel tras la intervención
+- $\beta_3$ = Cambio en la tendencia post-intervención
+- $\epsilon_t$ = Error aleatorio
+
+### Interpretación de Coeficientes
+
+- **β₁ (Tendencia pre)**: Indica cómo evoluciona la variable antes de la salida
+- **β₂ (Cambio de nivel)**: Mide el impacto inmediato de la salida
+- **β₃ (Cambio de tendencia)**: Mide si la tendencia cambia después de la salida
+
+### Ventajas y Limitaciones
+
+**Ventajas:**
+- Controla por tendencias temporales pre-existentes
+- Permite identificar efectos inmediatos y cambios en tendencias
+- No requiere grupo control
+
+**Limitaciones:**
+- Asume que no hay otros eventos confundidores en el momento de la intervención
+- Requiere suficientes observaciones antes y después
+- Sensible a autocorrelación
+
+## Implementación en R
+
+```{r its_analisis}
+# Función para realizar análisis ITS
+analisis_its <- function(datos, variable, nombre_var) {
+  cat("\n### Análisis ITS para:", nombre_var, "\n\n")
+  
+  # Modelo ITS completo
+  formula <- as.formula(paste(variable, 
+                             "~ Indice_Temporal + Post_Salida + Tiempo_desde_salida"))
+  modelo <- lm(formula, data = datos)
+  
+  # Resultados
+  cat("**Resumen del modelo:**\n\n")
+  print(summary(modelo))
+  
+  # Interpretación
+  coefs <- coef(modelo)
+  cat("\n**Interpretación de coeficientes:**\n\n")
+  cat("- **β₀ (Intercepto):**", round(coefs[1], 3), 
+      "→ Nivel base al inicio\n")
+  cat("- **β₁ (Tendencia pre):**", round(coefs[2], 3), 
+      "→ Cambio por versión antes de la salida\n")
+  cat("- **β₂ (Cambio de nivel):**", round(coefs[3], 3), 
+      "→ Cambio inmediato después de la salida\n")
+  if(length(coefs) > 3) {
+    cat("- **β₃ (Cambio de tendencia):**", round(coefs[4], 3), 
+        "→ Cambio en la tendencia post-salida\n")
+  }
+  
+  return(modelo)
+}
+
+# Aplicar a cada variable
+cat("\n## Nuevas Funcionalidades\n")
+modelo_its_features <- analisis_its(datos_h2o, "New_Features", 
+                                     "Nuevas Funcionalidades")
+
+cat("\n## Bugs Corregidos\n")
+modelo_its_bugs <- analisis_its(datos_h2o, "Bugs", "Bugs")
+
+cat("\n## Mejoras\n")
+modelo_its_improvements <- analisis_its(datos_h2o, "Improvements", "Mejoras")
+
+cat("\n## Documentación\n")
+modelo_its_docs <- analisis_its(datos_h2o, "Docs", "Documentación")
+```
+
+---
+
+# Método 2: Comparación de Medias con Tests Estadísticos
+
+## Fundamentos Teóricos
+
+### ¿Qué es la Comparación de Medias?
+
+Este método compara directamente los valores promedio de una variable entre dos grupos (antes/después) para determinar si existe una diferencia estadísticamente significativa.
+
+### Tests Utilizados
+
+#### 1. Test t de Student
+
+**Objetivo:** Determinar si las medias de dos grupos independientes son significativamente diferentes.
+
+**Hipótesis:**
+- $H_0$: $\mu_{después} = \mu_{antes}$ (no hay diferencia)
+- $H_1$: $\mu_{después} \neq \mu_{antes}$ (hay diferencia)
+
+**Estadístico:**
+$$t = \frac{\bar{X}_1 - \bar{X}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}$$
+
+**Supuestos:**
+- Normalidad de las distribuciones
+- Independencia de las observaciones
+- Homogeneidad de varianzas (o usar corrección de Welch)
+
+#### 2. Test de Wilcoxon (Mann-Whitney)
+
+**Objetivo:** Alternativa no paramétrica al test t cuando no se cumplen los supuestos de normalidad.
+
+**Ventajas:**
+- No requiere normalidad
+- Robusto ante outliers
+- Basado en rangos en lugar de valores absolutos
+
+### Interpretación del p-valor
+
+- **p < 0.05:** Rechazamos $H_0$, hay evidencia de diferencia significativa
+- **p ≥ 0.05:** No rechazamos $H_0$, no hay evidencia suficiente de diferencia
+
+### Tamaño del Efecto
+
+Además de la significancia estadística, es importante medir el **tamaño del efecto**:
+
+- **Cambio absoluto:** $\Delta = \mu_{después} - \mu_{antes}$
+- **Cambio porcentual:** $\Delta\% = \frac{\Delta}{\mu_{antes}} \times 100$
+
+## Implementación en R
+
+```{r comparacion_medias}
+# Función para comparar medias
+comparar_medias <- function(datos, variable, nombre_var) {
+  cat("\n### Análisis de:", nombre_var, "\n\n")
+  
+  # Estadísticas descriptivas
+  stats <- datos %>%
+    summarise(
+      Media_Antes = mean(get(variable)[Post_Salida == 0], na.rm = TRUE),
+      SD_Antes = sd(get(variable)[Post_Salida == 0], na.rm = TRUE),
+      N_Antes = sum(Post_Salida == 0),
+      Media_Despues = mean(get(variable)[Post_Salida == 1], na.rm = TRUE),
+      SD_Despues = sd(get(variable)[Post_Salida == 1], na.rm = TRUE),
+      N_Despues = sum(Post_Salida == 1),
+      Diferencia = Media_Despues - Media_Antes,
+      Cambio_Porcentual = ifelse(Media_Antes != 0, 
+                                  (Diferencia / Media_Antes) * 100, NA)
+    )
+  
+  # Mostrar tabla
+  kable(stats, digits = 3, caption = paste("Estadísticas:", nombre_var)) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+  
+  # Test t
+  datos_antes <- datos[datos$Post_Salida == 0, ][[variable]]
+  datos_despues <- datos[datos$Post_Salida == 1, ][[variable]]
+  test_t <- t.test(datos_despues, datos_antes)
+  
+  cat("\n**Test t de Student:**\n\n")
+  cat("- Estadístico t:", round(test_t$statistic, 3), "\n")
+  cat("- p-valor:", format.pval(test_t$p.value, digits = 4), "\n")
+  cat("- IC 95%: [", round(test_t$conf.int[1], 3), ",", 
+      round(test_t$conf.int[2], 3), "]\n\n")
+  
+  # Test de Wilcoxon
+  test_wilcox <- wilcox.test(datos_despues, datos_antes)
+  cat("**Test de Wilcoxon:**\n\n")
+  cat("- Estadístico W:", round(test_wilcox$statistic, 3), "\n")
+  cat("- p-valor:", format.pval(test_wilcox$p.value, digits = 4), "\n\n")
+  
+  # Interpretación
+  cat("**Interpretación:**\n\n")
+  if(test_t$p.value < 0.05) {
+    cat("✅ Diferencia **estadísticamente significativa** (p < 0.05)\n")
+    cat("- Cambio promedio:", round(stats$Diferencia, 3), "\n")
+    cat("- Cambio porcentual:", round(stats$Cambio_Porcentual, 2), "%\n\n")
+  } else {
+    cat("❌ **No hay diferencia estadísticamente significativa** (p ≥ 0.05)\n\n")
+  }
+  
+  return(list(stats = stats, test_t = test_t, test_wilcox = test_wilcox))
+}
+
+# Aplicar a cada variable
+comp_features <- comparar_medias(datos_h2o, "New_Features", 
+                                 "Nuevas Funcionalidades")
+comp_bugs <- comparar_medias(datos_h2o, "Bugs", "Bugs Corregidos")
+comp_improvements <- comparar_medias(datos_h2o, "Improvements", "Mejoras")
+comp_docs <- comparar_medias(datos_h2o, "Docs", "Documentación")
+```
+
+---
+
+# Método 3: Análisis de Tendencias
+
+## Fundamentos Teóricos
+
+### ¿Qué es el Análisis de Tendencias?
+
+El análisis de tendencias examina si existe un patrón sistemático de cambio a lo largo del tiempo, y cómo este patrón puede cambiar después de una intervención.
+
+### Modelo de Tendencia Lineal
+
+Para cada período (antes/después), ajustamos:
+
+$$Y_t = \alpha + \gamma \cdot t + \epsilon_t$$
+
+Donde:
+- $\alpha$ = Intercepto
+- $\gamma$ = Pendiente (tasa de cambio por unidad de tiempo)
+- $t$ = Tiempo
+
+### Comparación de Pendientes
+
+El **cambio en la tendencia** se calcula como:
+
+$$\Delta\gamma = \gamma_{después} - \gamma_{antes}$$
+
+Un $\Delta\gamma$ significativo indica que la intervención cambió la tasa de crecimiento/decrecimiento.
+
+### Coeficiente de Determinación (R²)
+
+El **R²** mide qué proporción de la variabilidad de Y se explica por el tiempo:
+
+- R² ≈ 0: No hay tendencia temporal
+- R² ≈ 1: Fuerte tendencia temporal
+
+### Significancia Estadística
+
+El **p-valor de la pendiente** indica si la tendencia es estadísticamente significativa:
+
+- p < 0.05: Tendencia significativa
+- p ≥ 0.05: No hay evidencia de tendencia
+
+## Implementación en R
+
+```{r analisis_tendencias}
+# Función para analizar tendencias
+analizar_tendencias <- function(datos, variable, nombre_var) {
+  cat("\n### Análisis de:", nombre_var, "\n\n")
+  
+  # Tendencia ANTES
+  datos_antes <- datos %>% filter(Post_Salida == 0)
+  modelo_antes <- lm(as.formula(paste(variable, "~ Indice_Temporal")), 
+                     data = datos_antes)
+  
+  # Tendencia DESPUÉS
+  datos_despues <- datos %>% filter(Post_Salida == 1)
+  if(nrow(datos_despues) > 2) {
+    modelo_despues <- lm(as.formula(paste(variable, "~ Indice_Temporal")), 
+                         data = datos_despues)
+  } else {
+    modelo_despues <- NULL
+  }
+  
+  # Resultados ANTES
+  cat("**Tendencia PRE-SALIDA:**\n\n")
+  cat("- Pendiente (γ):", round(coef(modelo_antes)[2], 5), "\n")
+  cat("- R²:", round(summary(modelo_antes)$r.squared, 4), "\n")
+  cat("- p-valor:", format.pval(summary(modelo_antes)$coefficients[2, 4], 
+                                digits = 4), "\n")
+  
+  interpretacion_antes <- ifelse(coef(modelo_antes)[2] > 0, "creciente", 
+                                ifelse(coef(modelo_antes)[2] < 0, "decreciente", 
+                                      "estable"))
+  cat("- **Interpretación:** Tendencia", interpretacion_antes, "\n\n")
+  
+  # Resultados DESPUÉS
+  if(!is.null(modelo_despues)) {
+    cat("**Tendencia POST-SALIDA:**\n\n")
+    cat("- Pendiente (γ):", round(coef(modelo_despues)[2], 5), "\n")
+    cat("- R²:", round(summary(modelo_despues)$r.squared, 4), "\n")
+    cat("- p-valor:", format.pval(summary(modelo_despues)$coefficients[2, 4], 
+                                  digits = 4), "\n")
+    
+    interpretacion_despues <- ifelse(coef(modelo_despues)[2] > 0, "creciente", 
+                                    ifelse(coef(modelo_despues)[2] < 0, 
+                                          "decreciente", "estable"))
+    cat("- **Interpretación:** Tendencia", interpretacion_despues, "\n\n")
+    
+    # Cambio en la pendiente
+    cambio_pendiente <- coef(modelo_despues)[2] - coef(modelo_antes)[2]
+    cat("**Cambio en la Pendiente (Δγ):**", round(cambio_pendiente, 5), "\n\n")
+    
+    if(abs(cambio_pendiente) > 0.01) {
+      direccion <- ifelse(cambio_pendiente > 0, "aceleró", "desaceleró")
+      cat("✅ La tendencia se **", direccion, "** después de la salida\n\n")
+    } else {
+      cat("➡️ La tendencia se mantuvo relativamente **estable**\n\n")
+    }
+  } else {
+    cat("⚠️ Datos insuficientes para análisis post-salida\n\n")
+  }
+  
+  return(list(modelo_antes = modelo_antes, modelo_despues = modelo_despues))
+}
+
+# Aplicar a cada variable
+tend_features <- analizar_tendencias(datos_h2o, "New_Features", 
+                                     "Nuevas Funcionalidades")
+tend_bugs <- analizar_tendencias(datos_h2o, "Bugs", "Bugs Corregidos")
+tend_improvements <- analizar_tendencias(datos_h2o, "Improvements", "Mejoras")
+tend_docs <- analizar_tendencias(datos_h2o, "Docs", "Documentación")
+```
+
+---
+
+# Método 4: Modelos ARIMA con Intervención
+
+## Fundamentos Teóricos
+
+### ¿Qué son los Modelos ARIMA?
+
+**ARIMA** (AutoRegressive Integrated Moving Average) es una familia de modelos estadísticos para analizar y predecir series temporales.
+
+### Componentes del Modelo ARIMA(p,d,q)
+
+Un modelo ARIMA se denota como ARIMA(p, d, q):
+
+- **p** = Orden autorregresivo (AR): Cuántos valores pasados influyen
+- **d** = Orden de diferenciación (I): Cuántas veces diferenciar para lograr estacionariedad
+- **q** = Orden de media móvil (MA): Cuántos errores pasados influyen
+
+### Ecuación General
+
+$$Y_t = c + \phi_1 Y_{t-1} + ... + \phi_p Y_{t-p} + \theta_1 \epsilon_{t-1} + ... + \theta_q \epsilon_{t-q} + \beta X_t + \epsilon_t$$
+
+Donde:
+- $Y_t$ = Variable de interés en tiempo t
+- $\phi_i$ = Coeficientes autorregresivos
+- $\theta_j$ = Coeficientes de media móvil
+- $X_t$ = Variable de intervención (0 antes, 1 después)
+- $\beta$ = Efecto de la intervención
+- $\epsilon_t$ = Ruido blanco
+
+### ARIMA con Regresor Externo (ARIMAX)
+
+Cuando incluimos una variable de intervención, tenemos un **ARIMAX**:
+
+$$\text{ARIMA}(Y_t) = \beta \cdot \text{Intervención}_t$$
+
+El coeficiente $\beta$ captura el efecto de la intervención controlando por:
+- Autocorrelación temporal
+- Patrones estacionales
+- Shocks previos
+
+### Test de Estacionariedad: Augmented Dickey-Fuller (ADF)
+
+**Objetivo:** Determinar si la serie temporal es estacionaria.
+
+**Hipótesis:**
+- $H_0$: La serie tiene raíz unitaria (NO estacionaria)
+- $H_1$: La serie es estacionaria
+
+**Interpretación:**
+- p < 0.05: Rechazamos $H_0$, la serie ES estacionaria
+- p ≥ 0.05: No rechazamos $H_0$, la serie NO es estacionaria (requiere diferenciación)
+
+### Ventajas de ARIMA
+
+- Controla por **autocorrelación** (valores pasados influyen en valores actuales)
+- Maneja **no estacionariedad** mediante diferenciación
+- Incorpora **shocks aleatorios** pasados
+- Permite **pronóstico** de valores futuros
+
+## Implementación en R
+
+```{r arima_analisis}
+# Función para análisis ARIMA con intervención
+analisis_arima_intervencion <- function(datos, variable, nombre_var) {
+  cat("\n### Análisis ARIMA para:", nombre_var, "\n\n")
+  
+  tryCatch({
+    # Crear serie temporal
+    serie <- ts(datos[[variable]], frequency = 12)
+    
+    # Test de estacionariedad
+    cat("**Test de Augmented Dickey-Fuller:**\n\n")
+    adf_test <- adf.test(serie, alternative = "stationary")
+    cat("- Estadístico ADF:", round(adf_test$statistic, 4), "\n")
+    cat("- p-valor:", format.pval(adf_test$p.value, digits = 4), "\n")
+    
+    if(adf_test$p.value < 0.05) {
+      cat("- **Resultado:** Serie ESTACIONARIA ✅\n\n")
+    } else {
+      cat("- **Resultado:** Serie NO ESTACIONARIA (requiere diferenciación) ⚠️\n\n")
+    }
+    
+    # Ajustar modelo ARIMA
+    if(require(forecast, quietly = TRUE)) {
+      cat("**Modelo ARIMA con Intervención:**\n\n")
+      modelo <- auto.arima(serie, xreg = datos$Post_Salida, 
+                          seasonal = FALSE, stepwise = FALSE)
+      print(summary(modelo))
+      
+      # Extraer coeficiente de intervención
+      coefs <- coef(modelo)
+      nombres_coefs <- names(coefs)
+      idx_intervencion <- grep("Post_Salida|xreg", nombres_coefs)
+      
+      if(length(idx_intervencion) > 0) {
+        coef_intervencion <- coefs[idx_intervencion[1]]
+        se_intervencion <- sqrt(diag(vcov(modelo)))[idx_intervencion[1]]
+        
+        cat("\n**Efecto de la Intervención:**\n\n")
+        cat("- Coeficiente (β):", round(coef_intervencion, 4), "\n")
+        cat("- Error estándar:", round(se_intervencion, 4), "\n")
+        cat("- IC 95%: [", 
+            round(coef_intervencion - 1.96*se_intervencion, 4), ",",
+            round(coef_intervencion + 1.96*se_intervencion, 4), "]\n\n")
+        
+        if(coef_intervencion > 0) {
+          cat("✅ Efecto **POSITIVO** de la salida\n\n")
+        } else if(coef_intervencion < 0) {
+          cat("❌ Efecto **NEGATIVO** de la salida\n\n")
+        } else {
+          cat("➡️ Sin efecto aparente\n\n")
+        }
+      }
+      
+      return(modelo)
+    } else {
+      # Modelo ARIMA básico
+      cat("**Modelo ARIMA(1,0,1) con regresor:**\n\n")
+      modelo <- arima(serie, order = c(1, 0, 1), xreg = datos$Post_Salida)
+      print(modelo)
+      return(modelo)
+    }
+    
+  }, error = function(e) {
+    cat("⚠️ Error en análisis ARIMA:", e$message, "\n\n")
+    return(NULL)
+  })
+}
+
+# Aplicar a cada variable
+arima_features <- analisis_arima_intervencion(datos_h2o, "New_Features", 
+                                              "Nuevas Funcionalidades")
+arima_bugs <- analisis_arima_intervencion(datos_h2o, "Bugs", "Bugs Corregidos")
+arima_improvements <- analisis_arima_intervencion(datos_h2o, "Improvements", 
+                                                   "Mejoras")
+arima_docs <- analisis_arima_intervencion(datos_h2o, "Docs", "Documentación")
+```
+
+---
+
+# Análisis del Ritmo de Versiones
+
+## Cálculo del Tiempo entre Versiones
+
+```{r ritmo_versiones}
+# Calcular días entre versiones
+datos_h2o <- datos_h2o %>%
+  mutate(
+    Dias_desde_anterior = c(NA, diff(Date)),
+    Meses_desde_anterior = Dias_desde_anterior / 30.44
+  )
+
+# Estadísticas generales
+stats_ritmo <- datos_h2o %>%
+  summarise(
+    Promedio_dias = mean(Dias_desde_anterior, na.rm = TRUE),
+    Mediana_dias = median(Dias_desde_anterior, na.rm = TRUE),
+    SD_dias = sd(Dias_desde_anterior, na.rm = TRUE),
+    Min_dias = min(Dias_desde_anterior, na.rm = TRUE),
+    Max_dias = max(Dias_desde_anterior, na.rm = TRUE)
+  )
+
+kable(stats_ritmo, 
+      caption = "Estadísticas del Tiempo entre Versiones (días)",
+      digits = 2) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Comparación Antes/Después
+
+```{r comparacion_ritmo}
+ritmo_comparacion <- datos_h2o %>%
+  filter(!is.na(Dias_desde_anterior)) %>%
+  summarise(
+    Promedio_dias_antes = mean(Dias_desde_anterior[Post_Salida == 0], 
+                               na.rm = TRUE),
+    Promedio_dias_despues = mean(Dias_desde_anterior[Post_Salida == 1], 
+                                 na.rm = TRUE)
+  ) %>%
+  mutate(
+    Diferencia_dias = Promedio_dias_despues - Promedio_dias_antes,
+    Cambio_porcentual = (Diferencia_dias / Promedio_dias_antes) * 100
+  )
+
+kable(ritmo_comparacion,
+      caption = "Comparación del Ritmo de Desarrollo",
+      digits = 2,
+      col.names = c("Antes (días)", "Después (días)", "Diferencia", "Cambio %")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+# Test estadístico
+dias_antes <- datos_h2o %>% 
+  filter(Post_Salida == 0, !is.na(Dias_desde_anterior)) %>% 
+  pull(Dias_desde_anterior)
+dias_despues <- datos_h2o %>% 
+  filter(Post_Salida == 1, !is.na(Dias_desde_anterior)) %>% 
+  pull(Dias_desde_anterior)
+
+if(length(dias_despues) > 1) {
+  test_ritmo <- t.test(dias_despues, dias_antes)
+  cat("\n**Test t para diferencia en ritmo:**\n")
+  cat("- p-valor:", format.pval(test_ritmo$p.value, digits = 4), "\n")
+  cat("- Significativo:", ifelse(test_ritmo$p.value < 0.05, "SÍ ✅", "NO ❌"), "\n")
+}
+```
+
+## Visualización del Ritmo
+
+```{r viz_ritmo}
+ggplot(datos_h2o %>% filter(!is.na(Dias_desde_anterior)), 
+       aes(x = Date, y = Dias_desde_anterior)) +
+  geom_line(color = "#277DA1", linewidth = 1) +
+  geom_point(aes(color = Periodo), size = 2.5, alpha = 0.7) +
+  geom_vline(xintercept = fecha_salida, linetype = "dashed", 
+             color = "red", linewidth = 1) +
+  geom_hline(yintercept = mean(datos_h2o$Dias_desde_anterior, na.rm = TRUE),
+             linetype = "dotted", color = "blue", linewidth = 0.8) +
+  annotate("text", x = fecha_salida, 
+           y = max(datos_h2o$Dias_desde_anterior, na.rm = TRUE) * 0.9,
+           label = "Salida de\nErin Ledell", hjust = -0.1, 
+           color = "red", size = 3.5, fontface = "bold") +
+  scale_color_manual(values = c("Antes" = "#277DA1", "Después" = "#F18F01")) +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year") +
+  labs(
+    title = "Tiempo entre Versiones Consecutivas de H2O-3",
+    subtitle = "Velocidad de desarrollo medida en días entre releases",
+    x = "Fecha de la Versión",
+    y = "Días desde la Versión Anterior",
+    color = "Período"
+  ) +
+  tema_personalizado
+```
+
+## Distribución de Cambios por Versión
+
+```{r distribucion_cambios}
+ggplot(datos_h2o, aes(x = Periodo, y = Total_cambios, fill = Periodo)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = 16, outlier.size = 2) +
+  geom_jitter(width = 0.2, alpha = 0.3, size = 1.5) +
+  scale_fill_manual(values = c("Antes" = "#2E86AB", "Después" = "#F18F01")) +
+  labs(
+    title = "Distribución de Cambios Totales por Versión",
+    subtitle = "Comparación antes y después de la salida de Erin Ledell",
+    x = "Período",
+    y = "Total de Cambios (Features + Bugs + Improvements + Docs)",
+    fill = "Período"
+  ) +
+  tema_personalizado
+```
+
+## Proporción de Tipos de Cambios
+
+```{r proporcion_cambios}
+proporcion_cambios <- datos_h2o %>%
+  summarise(
+    .by = Periodo,
+    Prop_Features = mean(New_Features / pmax(Total_cambios, 1)) * 100,
+    Prop_Bugs = mean(Bugs / pmax(Total_cambios, 1)) * 100,
+    Prop_Improvements = mean(Improvements / pmax(Total_cambios, 1)) * 100,
+    Prop_Docs = mean(Docs / pmax(Total_cambios, 1)) * 100
+  )
+
+kable(proporcion_cambios,
+      caption = "Proporción Promedio de Cada Tipo de Cambio (%)",
+      digits = 2,
+      col.names = c("Período", "Features", "Bugs", "Mejoras", "Docs")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+---
+
+# Resumen Ejecutivo de Resultados
+
+```{r resumen_final}
+cat("\n## Síntesis de Hallazgos\n\n")
+
+cat("### 1. Nuevas Funcionalidades\n")
+cat("- **Cambio promedio:**", round(comp_features$stats$Diferencia, 2), "\n")
+cat("- **Cambio porcentual:**", 
+    round(comp_features$stats$Cambio_Porcentual, 2), "%\n")
+cat("- **Significancia:**", 
+    ifelse(comp_features$test_t$p.value < 0.05, "SÍ ✅", "NO ❌"),
+    "(p =", round(comp_features$test_t$p.value, 4), ")\n\n")
+
+cat("### 2. Bugs Corregidos\n")
+cat("- **Cambio promedio:**", round(comp_bugs$stats$Diferencia, 2), "\n")
+cat("- **Cambio porcentual:**", 
+    round(comp_bugs$stats$Cambio_Porcentual, 2), "%\n")
+cat("- **Significancia:**", 
+    ifelse(comp_bugs$test_t$p.value < 0.05, "SÍ ✅", "NO ❌"),
+    "(p =", round(comp_bugs$test_t$p.value, 4), ")\n\n")
+
+cat("### 3. Mejoras\n")
+cat("- **Cambio promedio:**", round(comp_improvements$stats$Diferencia, 2), "\n")
+cat("- **Cambio porcentual:**", 
+    round(comp_improvements$stats$Cambio_Porcentual, 2), "%\n")
+cat("- **Significancia:**", 
+    ifelse(comp_improvements$test_t$p.value < 0.05, "SÍ ✅", "NO ❌"),
+    "(p =", round(comp_improvements$test_t$p.value, 4), ")\n\n")
+
+cat("### 4. Documentación\n")
+cat("- **Cambio promedio:**", round(comp_docs$stats$Diferencia, 2), "\n")
+cat("- **Cambio porcentual:**", 
+    round(comp_docs$stats$Cambio_Porcentual, 2), "%\n")
+cat("- **Significancia:**", 
+    ifelse(comp_docs$test_t$p.value < 0.05, "SÍ ✅", "NO ❌"),
+    "(p =", round(comp_docs$test_t$p.value, 4), ")\n\n")
+
+cat("### 5. Ritmo de Desarrollo\n")
+cat("- **Días promedio entre versiones (antes):**", 
+    round(ritmo_comparacion$Promedio_dias_antes, 2), "\n")
+cat("- **Días promedio entre versiones (después):**", 
+    round(ritmo_comparacion$Promedio_dias_despues, 2), "\n")
+cat("- **Cambio:**", round(ritmo_comparacion$Diferencia_dias, 2), "días (",
+    round(ritmo_comparacion$Cambio_porcentual, 2), "%)\n\n")
+```
+
+---
+
+# Conclusiones
+
+## Hallazgos Principales
+
+Los análisis causales realizados mediante **cuatro metodologías complementarias** permiten extraer las siguientes conclusiones:
+
+1. **Robustez del Análisis:** Al utilizar múltiples métodos (ITS, comparación de medias, análisis de tendencias y ARIMA), podemos triangular los resultados y aumentar la confianza en las conclusiones.
+
+2. **Interpretación Causal:** Cada método aporta una perspectiva diferente:
+   - **ITS:** Controla por tendencias pre-existentes
+   - **Comparación de medias:** Mide el cambio promedio
+   - **Análisis de tendencias:** Identifica cambios en la velocidad de evolución
+   - **ARIMA:** Controla por autocorrelación temporal
+
+3. **Consideraciones Importantes:**
+   - La causalidad nunca puede establecerse con certeza absoluta en estudios observacionales
+   - Es fundamental considerar factores confundidores (otros eventos en 2023)
+   - El tamaño muestral post-intervención puede limitar la potencia estadística
+
+## Limitaciones del Estudio
+
+- **Diseño observacional:** No es un experimento controlado
+- **Confundidores potenciales:** Otros cambios organizacionales, tecnológicos o de mercado
+- **Tamaño muestral:** Número limitado de observaciones post-intervención
+- **Atribución causal:** Dificultad para atribuir cambios exclusivamente a un factor
+
+## Recomendaciones
+
+1. Complementar con **análisis cualitativo** (entrevistas, revisión de commits)
+2. Considerar **variables adicionales** (tamaño del equipo, financiamiento, competencia)
+3. Realizar **seguimiento longitudinal** con más datos post-2023
+4. Aplicar **métodos de control sintético** si hay datos de proyectos similares
+
+---
+
+# Referencias y Recursos
+
+## Metodologías Causales
+
+- **Interrupted Time Series:** Bernal et al. (2017). "Interrupted time series regression for the evaluation of public health interventions"
+- **Test t de Student:** Student (1908). "The Probable Error of a Mean"
+- **ARIMA:** Box & Jenkins (1970). "Time Series Analysis: Forecasting and Control"
+
+## Paquetes de R Utilizados
+
+- `tidytable`: Procesamiento eficiente de datos tipo dplyr
+- `ggplot2`: Visualizaciones
+- `lubridate`: Manejo de fechas
+- `lmtest`: Tests de hipótesis para modelos lineales
+- `tseries`: Análisis de series temporales
+- `forecast`: Modelado ARIMA automático
+
+---
+
+**Fecha de generación:** `r Sys.Date()`
+
+**Autor:** Análisis de Inferencia Causal - H2O-3 Project
