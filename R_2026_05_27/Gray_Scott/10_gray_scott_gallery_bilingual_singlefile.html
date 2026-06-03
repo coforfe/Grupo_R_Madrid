@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gray-Scott Gallery</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --card: #fffdf9;
+      --card-border: #dcc8af;
+      --control-bg: linear-gradient(135deg, #f7edd8 0%, #f1dcc2 100%);
+      --control-border: #d7c2a5;
+      --ink: #2f2417;
+      --accent: #5e3b16;
+      --muted: #6e5b48;
+      --shadow: 0 10px 24px rgba(83, 58, 24, 0.08);
+      --success: #356a36;
+      --warning: #946311;
+      --gap: 18px;
+      --radius: 16px;
+      --page-width: 1420px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 246, 220, 0.9), transparent 36%),
+        radial-gradient(circle at top right, rgba(247, 228, 194, 0.7), transparent 28%),
+        var(--bg);
+    }
+
+    .page-shell {
+      max-width: var(--page-width);
+      margin: 0 auto;
+      padding: 24px 20px 36px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 2vw, 2.5rem);
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+
+    .title-wrap p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .lang-box {
+      min-width: 260px;
+      background: rgba(255, 253, 249, 0.75);
+      border: 1px solid rgba(220, 200, 175, 0.9);
+      border-radius: 14px;
+      padding: 12px 14px;
+      backdrop-filter: blur(8px);
+    }
+
+    .lang-box label,
+    .control label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    select,
+    input[type="range"] {
+      width: 100%;
+    }
+
+    select {
+      appearance: none;
+      border: 1px solid #ceb99c;
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--ink);
+      font-size: 0.95rem;
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding: 8px;
+      border-radius: 16px;
+      background: rgba(255, 253, 249, 0.75);
+      border: 1px solid rgba(220, 200, 175, 0.95);
+      box-shadow: var(--shadow);
+    }
+
+    .tab-btn {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 0.96rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+
+    .tab-btn.active {
+      background: #fffaf1;
+      color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(215, 194, 165, 0.8);
+    }
+
+    .tab-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--gap);
+    }
+
+    .explain-card,
+    .preset-card,
+    .controls-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .explain-card {
+      padding: 20px;
+    }
+
+    .explain-card h3 {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    .explain-card p,
+    .explain-card li {
+      color: var(--ink);
+      line-height: 1.55;
+      margin: 0 0 12px;
+    }
+
+    .equation-box {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #fbf4e7;
+      border: 1px solid #ead8bf;
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      font-size: 0.95rem;
+      color: #583f26;
+      overflow-x: auto;
+    }
+
+    .controls-card {
+      padding: 16px 18px 18px;
+      background: var(--control-bg);
+      border-color: var(--control-border);
+      margin-bottom: 18px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    .control {
+      min-width: 0;
+    }
+
+    .range-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: "Consolas", "SFMono-Regular", monospace;
+    }
+
+    input[type="range"] {
+      accent-color: #80541b;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      transition: transform 0.18s ease, filter 0.18s ease;
+      min-width: 132px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.03);
+    }
+
+    .btn-warning {
+      background: linear-gradient(135deg, #a97418, #8f5f12);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #467d45, #315e31);
+    }
+
+    .status-line {
+      margin-top: 12px;
+      color: #4a3a28;
+      font-size: 0.92rem;
+      font-family: "Consolas", "SFMono-Regular", monospace;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .preset-card {
+      padding: 12px;
+    }
+
+    .preset-header {
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .preset-params,
+    .preset-iteration {
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .preset-iteration {
+      color: #5a4735;
+      font-weight: 700;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #d9c7b0;
+      background: #120a12;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #120a12;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 1120px) {
+      .controls-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .gallery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page-shell {
+        padding: 16px 14px 28px;
+      }
+
+      .grid-two,
+      .gallery-grid,
+      .controls-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tabs {
+        width: 100%;
+      }
+
+      .tab-btn {
+        flex: 1 1 auto;
+      }
+
+      .button-row {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="top-bar">
+      <div class="title-wrap">
+        <h1 id="app-title">Gray-Scott: galeria paralela de patrones</h1>
+        <p id="app-subtitle">HTML autocontenido para compartir sin Shiny.</p>
+      </div>
+      <div class="lang-box">
+        <label id="language-label" for="lang-select">Idioma / Language</label>
+        <select id="lang-select">
+          <option value="es">Espanol</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Tabs">
+      <button class="tab-btn active" type="button" data-tab="explanation" id="tab-explanation" aria-selected="true">Explicacion</button>
+      <button class="tab-btn" type="button" data-tab="gallery" id="tab-gallery" aria-selected="false">Galeria</button>
+    </nav>
+
+    <section class="tab-panel active" id="panel-explanation">
+      <div class="grid-two">
+        <article class="explain-card">
+          <h3 id="exp-title-1">El sistema Gray-Scott</h3>
+          <p id="exp-p-1"></p>
+          <p id="exp-p-2"></p>
+          <div class="equation-box">
+            <div>du/dt = Du * Laplacian(u) - u * v^2 + f * (1 - u)</div>
+            <div style="margin-top: 8px;">dv/dt = Dv * Laplacian(v) + u * v^2 - (f + k) * v</div>
+          </div>
+        </article>
+
+        <article class="explain-card">
+          <h3 id="exp-title-2">Que controla cada parametro</h3>
+          <ul>
+            <li><strong>f:</strong> <span id="bullet-f"></span></li>
+            <li><strong>k:</strong> <span id="bullet-k"></span></li>
+            <li><strong>Du y Dv:</strong> <span id="bullet-diff"></span></li>
+            <li><strong>Grid:</strong> <span id="bullet-grid"></span></li>
+            <li><strong>Steps:</strong> <span id="bullet-steps"></span></li>
+          </ul>
+          <p id="exp-p-3"></p>
+        </article>
+      </div>
+
+      <article class="explain-card" style="margin-top: 18px;">
+        <h3 id="exp-title-3">Notas de rendimiento</h3>
+        <p id="exp-p-4"></p>
+        <p id="exp-p-5"></p>
+      </article>
+    </section>
+
+    <section class="tab-panel" id="panel-gallery">
+      <div class="controls-card">
+        <div class="controls-grid">
+          <div class="control">
+            <label id="label-grid" for="grid-size">Tamano del grid</label>
+            <input id="grid-size" type="range" min="50" max="120" step="10" value="80">
+            <div class="range-meta">
+              <span>50</span>
+              <span id="grid-size-value">80</span>
+              <span>120</span>
+            </div>
+          </div>
+
+          <div class="control">
+            <label id="label-steps" for="steps-per-tick">Pasos por tick</label>
+            <input id="steps-per-tick" type="range" min="5" max="60" step="5" value="20">
+            <div class="range-meta">
+              <span>5</span>
+              <span id="steps-value">20</span>
+              <span>60</span>
+            </div>
+          </div>
+
+          <div class="control">
+            <label id="label-refresh" for="refresh-ms">Milisegundos por refresco</label>
+            <input id="refresh-ms" type="range" min="30" max="200" step="10" value="60">
+            <div class="range-meta">
+              <span>30</span>
+              <span id="refresh-value">60 ms</span>
+              <span>200</span>
+            </div>
+          </div>
+
+          <div class="control">
+            <label id="label-palette" for="palette-select">Paleta</label>
+            <select id="palette-select">
+              <option value="grayscott">Gray-Scott Original</option>
+              <option value="magma">magma</option>
+              <option value="inferno">inferno</option>
+              <option value="plasma">plasma</option>
+              <option value="viridis">viridis</option>
+            </select>
+          </div>
+
+          <div class="control">
+            <div class="button-row" style="margin-top: 28px;">
+              <button class="btn btn-warning" id="reset-btn">Resetear galeria</button>
+              <button class="btn btn-success" id="run-btn">▶ Simular todas</button>
+            </div>
+            <div class="status-line" id="gallery-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gallery-grid" id="gallery-grid"></div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const PRESET_KEYS = [
+        "labyrinths",
+        "spots",
+        "gears",
+        "waves",
+        "chaos",
+        "leopard_skin"
+      ];
+
+      const PRESETS = {
+        labyrinths: { f: 0.022, k: 0.051, Du: 0.16, Dv: 0.08 },
+        spots: { f: 0.035, k: 0.065, Du: 0.16, Dv: 0.08 },
+        gears: { f: 0.025, k: 0.060, Du: 0.16, Dv: 0.08 },
+        waves: { f: 0.014, k: 0.054, Du: 0.16, Dv: 0.08 },
+        chaos: { f: 0.026, k: 0.051, Du: 0.16, Dv: 0.08 },
+        leopard_skin: { f: 0.037, k: 0.060, Du: 0.16, Dv: 0.08 }
+      };
+
+      const TRANSLATIONS = {
+        es: {
+          appTitle: "Gray-Scott: galeria paralela de patrones",
+          appSubtitle: "HTML autocontenido para compartir sin Shiny.",
+          languageLabel: "Idioma / Language",
+          tabs: {
+            explanation: "Explicacion",
+            gallery: "Galeria"
+          },
+          explanation: {
+            title1: "El sistema Gray-Scott",
+            p1: "La app simula un sistema de reaccion-difusion con dos sustancias quimicas, u y v.",
+            p2: "Dependiendo de la combinacion de parametros, el sistema puede producir manchas, laberintos, ondas y estructuras complejas.",
+            title2: "Que controla cada parametro",
+            bulletF: "tasa de alimentacion de u.",
+            bulletK: "tasa de eliminacion de v.",
+            bulletDiff: "controlan la difusion espacial.",
+            bulletGrid: "resolucion espacial de cada simulacion.",
+            bulletSteps: "cuantos pasos numericos se hacen antes de repintar cada panel.",
+            p3: "En la pestana de galeria se muestran seis presets de forma simultanea con sus parametros visibles encima de cada grafico.",
+            title3: "Notas de rendimiento",
+            p4: "Esta version corre completamente en el navegador. No necesita servidor ni Shiny para ejecutarse y compartirla.",
+            p5: "Si en tu equipo se quedara corta, el siguiente paso natural seria usar WebGL, Web Workers o reducir grid y pasos por tick."
+          },
+          controls: {
+            gridSize: "Tamano del grid",
+            steps: "Pasos por tick",
+            refreshMs: "Milisegundos por refresco",
+            palette: "Paleta",
+            reset: "Resetear galeria",
+            run: "▶ Simular todas",
+            pause: "⏸ Pausar todas",
+            statusRunning: "Estado: simulando",
+            statusPaused: "Estado: pausado",
+            commonIteration: "Iteracion comun",
+            refreshValue: "Refresco",
+            plotIteration: "Iteracion",
+            presetOriginal: "Gray-Scott Original"
+          },
+          presetTitles: {
+            labyrinths: "Laberintos",
+            spots: "Manchas",
+            gears: "Engranajes",
+            waves: "Ondas",
+            chaos: "Caos",
+            leopard_skin: "Piel de leopardo"
+          }
+        },
+        en: {
+          appTitle: "Gray-Scott: parallel pattern gallery",
+          appSubtitle: "Self-contained HTML to share without Shiny.",
+          languageLabel: "Language / Idioma",
+          tabs: {
+            explanation: "Explanation",
+            gallery: "Gallery"
+          },
+          explanation: {
+            title1: "The Gray-Scott system",
+            p1: "This app simulates a reaction-diffusion system with two chemical species, u and v.",
+            p2: "Depending on the parameter combination, the system can produce spots, labyrinths, waves, and complex structures.",
+            title2: "What each parameter controls",
+            bulletF: "feed rate of u.",
+            bulletK: "removal rate of v.",
+            bulletDiff: "control spatial diffusion.",
+            bulletGrid: "spatial resolution of each simulation.",
+            bulletSteps: "how many numerical steps are computed before each panel is redrawn.",
+            p3: "The gallery tab shows six presets simultaneously, with their parameters displayed above each plot.",
+            title3: "Performance notes",
+            p4: "This version runs entirely in the browser. It does not need a server or Shiny to run and share it.",
+            p5: "If performance still becomes limiting on your machine, the next natural step would be to use WebGL, Web Workers, or reduce grid size and steps per tick."
+          },
+          controls: {
+            gridSize: "Grid size",
+            steps: "Steps per tick",
+            refreshMs: "Milliseconds per refresh",
+            palette: "Palette",
+            reset: "Reset gallery",
+            run: "▶ Run all",
+            pause: "⏸ Pause all",
+            statusRunning: "Status: running",
+            statusPaused: "Status: paused",
+            commonIteration: "Common iteration",
+            refreshValue: "Refresh",
+            plotIteration: "Iteration",
+            presetOriginal: "Gray-Scott Original"
+          },
+          presetTitles: {
+            labyrinths: "Labyrinths",
+            spots: "Spots",
+            gears: "Gears",
+            waves: "Waves",
+            chaos: "Chaos",
+            leopard_skin: "Leopard skin"
+          }
+        }
+      };
+
+      const PALETTE_ANCHORS = {
+        grayscott: [
+          "#1a0030", "#3d0060", "#6b0080", "#8b1a6b", "#a03020",
+          "#c05010", "#e07010", "#f0a020", "#f5c040", "#fde060", "#fff5a0"
+        ],
+        magma: [
+          "#000004", "#180f3d", "#440f76", "#721f81", "#9e2f7f",
+          "#cd4071", "#f1605d", "#fd9668", "#feca8d", "#fcfdbf"
+        ],
+        inferno: [
+          "#000004", "#1b0c41", "#4a0c6b", "#781c6d", "#a52c60",
+          "#cf4446", "#ed6925", "#fb9b06", "#f7d13d", "#fcffa4"
+        ],
+        plasma: [
+          "#0d0887", "#46039f", "#7201a8", "#9c179e", "#bd3786",
+          "#d8576b", "#ed7953", "#fb9f3a", "#fdca26", "#f0f921"
+        ],
+        viridis: [
+          "#440154", "#482878", "#3e4989", "#31688e", "#26828e",
+          "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"
+        ]
+      };
+
+      const paletteCache = new Map();
+
+      const state = {
+        lang: "es",
+        activeTab: "explanation",
+        running: false,
+        gridSize: 80,
+        steps: 20,
+        refreshMs: 60,
+        palette: "grayscott",
+        timerId: null,
+        simulations: {}
+      };
+
+      const elements = {
+        appTitle: document.getElementById("app-title"),
+        appSubtitle: document.getElementById("app-subtitle"),
+        languageLabel: document.getElementById("language-label"),
+        langSelect: document.getElementById("lang-select"),
+        tabExplanation: document.getElementById("tab-explanation"),
+        tabGallery: document.getElementById("tab-gallery"),
+        panelExplanation: document.getElementById("panel-explanation"),
+        panelGallery: document.getElementById("panel-gallery"),
+        expTitle1: document.getElementById("exp-title-1"),
+        expP1: document.getElementById("exp-p-1"),
+        expP2: document.getElementById("exp-p-2"),
+        expTitle2: document.getElementById("exp-title-2"),
+        bulletF: document.getElementById("bullet-f"),
+        bulletK: document.getElementById("bullet-k"),
+        bulletDiff: document.getElementById("bullet-diff"),
+        bulletGrid: document.getElementById("bullet-grid"),
+        bulletSteps: document.getElementById("bullet-steps"),
+        expP3: document.getElementById("exp-p-3"),
+        expTitle3: document.getElementById("exp-title-3"),
+        expP4: document.getElementById("exp-p-4"),
+        expP5: document.getElementById("exp-p-5"),
+        gridSize: document.getElementById("grid-size"),
+        gridSizeValue: document.getElementById("grid-size-value"),
+        steps: document.getElementById("steps-per-tick"),
+        stepsValue: document.getElementById("steps-value"),
+        refreshMs: document.getElementById("refresh-ms"),
+        refreshValue: document.getElementById("refresh-value"),
+        paletteSelect: document.getElementById("palette-select"),
+        labelGrid: document.getElementById("label-grid"),
+        labelSteps: document.getElementById("label-steps"),
+        labelRefresh: document.getElementById("label-refresh"),
+        labelPalette: document.getElementById("label-palette"),
+        resetBtn: document.getElementById("reset-btn"),
+        runBtn: document.getElementById("run-btn"),
+        galleryStatus: document.getElementById("gallery-status"),
+        galleryGrid: document.getElementById("gallery-grid")
+      };
+
+      function mulberry32(seed) {
+        let t = seed >>> 0;
+        return function nextRandom() {
+          t += 0x6D2B79F5;
+          let x = Math.imul(t ^ (t >>> 15), 1 | t);
+          x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+          return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function hexToRgb(hex) {
+        const clean = hex.replace("#", "");
+        return [
+          parseInt(clean.slice(0, 2), 16),
+          parseInt(clean.slice(2, 4), 16),
+          parseInt(clean.slice(4, 6), 16)
+        ];
+      }
+
+      function formatParams(preset) {
+        return `f = ${preset.f.toFixed(3)} | k = ${preset.k.toFixed(3)} | Du = ${preset.Du.toFixed(2)} | Dv = ${preset.Dv.toFixed(2)}`;
+      }
+
+      function getPalette(name, size = 256) {
+        const cacheKey = `${name}_${size}`;
+        if (paletteCache.has(cacheKey)) {
+          return paletteCache.get(cacheKey);
+        }
+
+        const anchors = PALETTE_ANCHORS[name] || PALETTE_ANCHORS.grayscott;
+        const anchorRgb = anchors.map(hexToRgb);
+        const palette = new Uint8ClampedArray(size * 3);
+
+        for (let i = 0; i < size; i += 1) {
+          const t = i / (size - 1);
+          const scaled = t * (anchorRgb.length - 1);
+          const index = Math.min(anchorRgb.length - 2, Math.floor(scaled));
+          const localT = scaled - index;
+          const a = anchorRgb[index];
+          const b = anchorRgb[index + 1];
+
+          palette[i * 3] = Math.round(lerp(a[0], b[0], localT));
+          palette[i * 3 + 1] = Math.round(lerp(a[1], b[1], localT));
+          palette[i * 3 + 2] = Math.round(lerp(a[2], b[2], localT));
+        }
+
+        paletteCache.set(cacheKey, palette);
+        return palette;
+      }
+
+      function buildInitialState(n, seed) {
+        const total = n * n;
+        const u = new Float32Array(total);
+        const v = new Float32Array(total);
+        const uNext = new Float32Array(total);
+        const vNext = new Float32Array(total);
+        const random = mulberry32(seed);
+
+        u.fill(1);
+
+        const r = Math.round(n * 0.1);
+        const cx = Math.round(n / 2);
+        const cy = Math.round(n / 2);
+        const rowStart = Math.max(0, cx - r);
+        const rowEnd = Math.min(n - 1, cx + r);
+        const colStart = Math.max(0, cy - r);
+        const colEnd = Math.min(n - 1, cy + r);
+
+        for (let row = rowStart; row <= rowEnd; row += 1) {
+          const rowOffset = row * n;
+          for (let col = colStart; col <= colEnd; col += 1) {
+            const idx = rowOffset + col;
+            u[idx] = 0.5 + (random() * 0.2 - 0.1);
+            v[idx] = 0.25 + (random() * 0.2 - 0.1);
+          }
+        }
+
+        return {
+          n,
+          u,
+          v,
+          uNext,
+          vNext,
+          iteration: 0,
+          imageData: null
+        };
+      }
+
+      function resetGallery() {
+        const nextSimulations = {};
+
+        PRESET_KEYS.forEach((key, index) => {
+          nextSimulations[key] = buildInitialState(state.gridSize, 100 + index + 1);
+        });
+
+        state.simulations = nextSimulations;
+        renderAll();
+        updateStatus();
+      }
+
+      function grayScottStep(simulation, preset, steps) {
+        const n = simulation.n;
+        let u = simulation.u;
+        let v = simulation.v;
+        let uNext = simulation.uNext;
+        let vNext = simulation.vNext;
+        const dt = 1.0;
+        const Du = preset.Du;
+        const Dv = preset.Dv;
+        const f = preset.f;
+        const k = preset.k;
+
+        for (let step = 0; step < steps; step += 1) {
+          for (let row = 0; row < n; row += 1) {
+            const up = row === 0 ? n - 1 : row - 1;
+            const down = row === n - 1 ? 0 : row + 1;
+            const rowOffset = row * n;
+            const upOffset = up * n;
+            const downOffset = down * n;
+
+            for (let col = 0; col < n; col += 1) {
+              const left = col === 0 ? n - 1 : col - 1;
+              const right = col === n - 1 ? 0 : col + 1;
+              const idx = rowOffset + col;
+
+              const uCenter = u[idx];
+              const vCenter = v[idx];
+
+              const Lu =
+                u[upOffset + col] +
+                u[downOffset + col] +
+                u[rowOffset + left] +
+                u[rowOffset + right] -
+                4 * uCenter;
+
+              const Lv =
+                v[upOffset + col] +
+                v[downOffset + col] +
+                v[rowOffset + left] +
+                v[rowOffset + right] -
+                4 * vCenter;
+
+              const uvv = uCenter * vCenter * vCenter;
+
+              let nextU = uCenter + dt * (Du * Lu - uvv + f * (1 - uCenter));
+              let nextV = vCenter + dt * (Dv * Lv + uvv - (f + k) * vCenter);
+
+              if (nextU < 0) nextU = 0;
+              if (nextU > 1) nextU = 1;
+              if (nextV < 0) nextV = 0;
+              if (nextV > 1) nextV = 1;
+
+              uNext[idx] = nextU;
+              vNext[idx] = nextV;
+            }
+          }
+
+          const oldU = u;
+          const oldV = v;
+          u = uNext;
+          v = vNext;
+          uNext = oldU;
+          vNext = oldV;
+        }
+
+        simulation.u = u;
+        simulation.v = v;
+        simulation.uNext = uNext;
+        simulation.vNext = vNext;
+        simulation.iteration += steps;
+      }
+
+      function ensureImageData(simulation, ctx) {
+        if (!simulation.imageData || simulation.imageData.width !== simulation.n) {
+          simulation.imageData = ctx.createImageData(simulation.n, simulation.n);
+        }
+        return simulation.imageData;
+      }
+
+      function renderSimulation(key) {
+        const card = document.getElementById(`card-${key}`);
+        const canvas = card.querySelector("canvas");
+        const iterationNode = card.querySelector(".preset-iteration");
+        const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+        const simulation = state.simulations[key];
+        const txt = TRANSLATIONS[state.lang];
+        const palette = getPalette(state.palette);
+        const n = simulation.n;
+
+        if (canvas.width !== n || canvas.height !== n) {
+          canvas.width = n;
+          canvas.height = n;
+        }
+
+        const imageData = ensureImageData(simulation, ctx);
+        const pixels = imageData.data;
+        const values = simulation.v;
+
+        for (let i = 0; i < values.length; i += 1) {
+          const value = values[i] < 0 ? 0 : values[i] > 1 ? 1 : values[i];
+          const colorIndex = Math.min(255, Math.max(0, Math.floor(value * 255)));
+          const pixelIndex = i * 4;
+          const paletteIndex = colorIndex * 3;
+
+          pixels[pixelIndex] = palette[paletteIndex];
+          pixels[pixelIndex + 1] = palette[paletteIndex + 1];
+          pixels[pixelIndex + 2] = palette[paletteIndex + 2];
+          pixels[pixelIndex + 3] = 255;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        iterationNode.textContent = `${txt.controls.plotIteration}: ${simulation.iteration}`;
+      }
+
+      function renderAll() {
+        PRESET_KEYS.forEach((key) => renderSimulation(key));
+      }
+
+      function updateStatus() {
+        const txt = TRANSLATIONS[state.lang];
+        const firstIteration = state.simulations[PRESET_KEYS[0]].iteration;
+        const status = state.running ? txt.controls.statusRunning : txt.controls.statusPaused;
+        elements.galleryStatus.textContent =
+          `${status} | ${txt.controls.commonIteration}: ${firstIteration} | ${txt.controls.refreshValue}: ${state.refreshMs} ms`;
+      }
+
+      function buildGallery() {
+        elements.galleryGrid.innerHTML = "";
+
+        PRESET_KEYS.forEach((key) => {
+          const preset = PRESETS[key];
+          const card = document.createElement("article");
+          card.className = "preset-card";
+          card.id = `card-${key}`;
+          card.innerHTML = `
+            <div class="preset-header"></div>
+            <div class="preset-params"></div>
+            <div class="preset-iteration"></div>
+            <div class="canvas-wrap">
+              <canvas aria-label="${key}"></canvas>
+            </div>
+          `;
+          elements.galleryGrid.appendChild(card);
+
+          card.querySelector(".preset-params").textContent = formatParams(preset);
+        });
+      }
+
+      function applyTranslations() {
+        const txt = TRANSLATIONS[state.lang];
+        document.documentElement.lang = state.lang;
+
+        elements.appTitle.textContent = txt.appTitle;
+        elements.appSubtitle.textContent = txt.appSubtitle;
+        elements.languageLabel.textContent = txt.languageLabel;
+        elements.tabExplanation.textContent = txt.tabs.explanation;
+        elements.tabGallery.textContent = txt.tabs.gallery;
+
+        elements.expTitle1.textContent = txt.explanation.title1;
+        elements.expP1.textContent = txt.explanation.p1;
+        elements.expP2.textContent = txt.explanation.p2;
+        elements.expTitle2.textContent = txt.explanation.title2;
+        elements.bulletF.textContent = txt.explanation.bulletF;
+        elements.bulletK.textContent = txt.explanation.bulletK;
+        elements.bulletDiff.textContent = txt.explanation.bulletDiff;
+        elements.bulletGrid.textContent = txt.explanation.bulletGrid;
+        elements.bulletSteps.textContent = txt.explanation.bulletSteps;
+        elements.expP3.textContent = txt.explanation.p3;
+        elements.expTitle3.textContent = txt.explanation.title3;
+        elements.expP4.textContent = txt.explanation.p4;
+        elements.expP5.textContent = txt.explanation.p5;
+
+        elements.labelGrid.textContent = txt.controls.gridSize;
+        elements.labelSteps.textContent = txt.controls.steps;
+        elements.labelRefresh.textContent = txt.controls.refreshMs;
+        elements.labelPalette.textContent = txt.controls.palette;
+        elements.resetBtn.textContent = txt.controls.reset;
+        elements.runBtn.textContent = state.running ? txt.controls.pause : txt.controls.run;
+
+        elements.paletteSelect.options[0].textContent = txt.controls.presetOriginal;
+
+        PRESET_KEYS.forEach((key) => {
+          const card = document.getElementById(`card-${key}`);
+          if (!card) return;
+          card.querySelector(".preset-header").textContent = txt.presetTitles[key];
+        });
+
+        renderAll();
+        updateStatus();
+      }
+
+      function setActiveTab(tabName) {
+        state.activeTab = tabName;
+        const explanationActive = tabName === "explanation";
+
+        elements.tabExplanation.classList.toggle("active", explanationActive);
+        elements.tabGallery.classList.toggle("active", !explanationActive);
+        elements.tabExplanation.setAttribute("aria-selected", String(explanationActive));
+        elements.tabGallery.setAttribute("aria-selected", String(!explanationActive));
+        elements.panelExplanation.classList.toggle("active", explanationActive);
+        elements.panelGallery.classList.toggle("active", !explanationActive);
+      }
+
+      function stopLoop() {
+        if (state.timerId !== null) {
+          window.clearTimeout(state.timerId);
+          state.timerId = null;
+        }
+      }
+
+      function scheduleNextTick() {
+        stopLoop();
+        if (!state.running) return;
+        state.timerId = window.setTimeout(runTick, state.refreshMs);
+      }
+
+      function runTick() {
+        if (!state.running) return;
+
+        PRESET_KEYS.forEach((key) => {
+          grayScottStep(state.simulations[key], PRESETS[key], state.steps);
+        });
+
+        renderAll();
+        updateStatus();
+        scheduleNextTick();
+      }
+
+      function toggleRun() {
+        state.running = !state.running;
+        applyTranslations();
+
+        if (state.running) {
+          runTick();
+        } else {
+          stopLoop();
+        }
+      }
+
+      function syncControlReadouts() {
+        elements.gridSizeValue.textContent = String(state.gridSize);
+        elements.stepsValue.textContent = String(state.steps);
+        elements.refreshValue.textContent = `${state.refreshMs} ms`;
+      }
+
+      function bindEvents() {
+        elements.langSelect.addEventListener("change", (event) => {
+          state.lang = event.target.value;
+          applyTranslations();
+        });
+
+        elements.tabExplanation.addEventListener("click", () => setActiveTab("explanation"));
+        elements.tabGallery.addEventListener("click", () => setActiveTab("gallery"));
+
+        elements.gridSize.addEventListener("input", (event) => {
+          state.gridSize = Number(event.target.value);
+          syncControlReadouts();
+        });
+
+        elements.gridSize.addEventListener("change", () => {
+          resetGallery();
+        });
+
+        elements.steps.addEventListener("input", (event) => {
+          state.steps = Number(event.target.value);
+          syncControlReadouts();
+        });
+
+        elements.refreshMs.addEventListener("input", (event) => {
+          state.refreshMs = Number(event.target.value);
+          syncControlReadouts();
+          updateStatus();
+          if (state.running) {
+            scheduleNextTick();
+          }
+        });
+
+        elements.paletteSelect.addEventListener("change", (event) => {
+          state.palette = event.target.value;
+          renderAll();
+        });
+
+        elements.resetBtn.addEventListener("click", () => {
+          resetGallery();
+        });
+
+        elements.runBtn.addEventListener("click", () => {
+          toggleRun();
+        });
+      }
+
+      function init() {
+        buildGallery();
+        bindEvents();
+        syncControlReadouts();
+        resetGallery();
+        applyTranslations();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
